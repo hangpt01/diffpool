@@ -1,12 +1,12 @@
 import networkx as nx
 import numpy as np
-import scipy as sc
+import scanpy as sc
 from itertools import combinations
 import pickle as pk
-import os
-import re
+# import os
+# import re
 
-import util
+# import util
 
 # def read_graphfile(datadir, dataname, max_nodes=None):
 #     ''' Read data from https://ls11-www.cs.tu-dortmund.de/staff/morris/graphkerneldatasets
@@ -115,12 +115,6 @@ import util
 #         graphs.append(nx.relabel_nodes(G, mapping))
 #     return graphs
 
-def read_bio_file (path_data_paper='data/atac-gex/paperdata/', path_gen_locus='data/atac-gex/raw/'):
-    atac_train = sc.read_h5ad(path_data_paper + 'atac_train.h5ad')
-    atac_test = sc.read_h5ad(path_data_paper + 'atac_test.h5ad')
-    gex_train = sc.read_h5ad(path_data_paper + 'gex_train.h5ad')
-    gex_test = sc.read_h5ad(path_data_paper + 'gex_test.h5ad')
-
 def get_adj_list(gene_locus_):
     adj_list = []
     for k, v in gene_locus_.items():
@@ -146,8 +140,8 @@ def get_graphs():
     gex_train = sc.read_h5ad(gex_train_path)
     gex_test = sc.read_h5ad(gex_test_path)
     
-    gene_locus = pk.load(open('raw/gene locus 2.pkl', 'rb'))
-    gene_locus_int = pk.load(open('raw/gene locus int.pkl', 'rb'))    
+    gene_locus = pk.load(open('data/atac-gex/raw/gene locus 2.pkl', 'rb'))
+    gene_locus_int = pk.load(open('data/atac-gex/raw/gene locus int.pkl', 'rb'))    
     
     atac_train_np = atac_train.X.toarray()
     atac_test_np = atac_test.X.toarray()
@@ -156,8 +150,8 @@ def get_graphs():
     
     graphs = []
     # for i in range(atac_test_np.shape[0]*39): # train+val: test_ratio=0.025*total
-    # test with 1/100: 10/1000 gex vector first
-    for i in range(10*39): # train+val: test_ratio=0.025*total    
+    # test with 1/200: 5/1000 gex vector first
+    for i in range(5*39): # train+val: test_ratio=0.025*total    
         node_list = list(range(atac_train_np.shape[1]))
         G=nx.Graph()
         G.add_nodes_from(node_list)
@@ -170,7 +164,7 @@ def get_graphs():
         graphs.append(G)
         
     # for i in range(atac_test_np.shape[0]): # test
-    for i in range(10): # test
+    for i in range(5): # test
         node_list = list(range(atac_train_np.shape[1]))
         G=nx.Graph()
         G.add_nodes_from(node_list)
@@ -183,3 +177,6 @@ def get_graphs():
         graphs.append(G)
     
     return graphs
+
+if __name__ == '__main__':
+    get_graphs()
