@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 import numpy as np
 
-from set2set import Set2Set
+# from set2set import Set2Set
 
 # GCN basic operation
 class GraphConv(nn.Module):
@@ -39,7 +39,7 @@ class GraphConv(nn.Module):
             #print(y[0][0])
         return y
 
-class GcnEncoderGraph(nn.Module):
+class GcnEncoderGraph(nn.Module):   # base
     def __init__(self, input_dim, hidden_dim, embedding_dim, label_dim, num_layers,
             pred_hidden_dims=[], concat=True, bn=True, dropout=0.0, args=None):
         super(GcnEncoderGraph, self).__init__()
@@ -200,27 +200,27 @@ class GcnEncoderGraph(nn.Module):
         #return F.binary_cross_entropy(F.sigmoid(pred[:,0]), label.float())
 
 
-class GcnSet2SetEncoder(GcnEncoderGraph):
-    def __init__(self, input_dim, hidden_dim, embedding_dim, label_dim, num_layers,
-            pred_hidden_dims=[], concat=True, bn=True, dropout=0.0, args=None):
-        super(GcnSet2SetEncoder, self).__init__(input_dim, hidden_dim, embedding_dim, label_dim,
-                num_layers, pred_hidden_dims, concat, bn, dropout, args=args)
-        self.s2s = Set2Set(self.pred_input_dim, self.pred_input_dim * 2)
+# class GcnSet2SetEncoder(GcnEncoderGraph):
+#     def __init__(self, input_dim, hidden_dim, embedding_dim, label_dim, num_layers,
+#             pred_hidden_dims=[], concat=True, bn=True, dropout=0.0, args=None):
+#         super(GcnSet2SetEncoder, self).__init__(input_dim, hidden_dim, embedding_dim, label_dim,
+#                 num_layers, pred_hidden_dims, concat, bn, dropout, args=args)
+#         self.s2s = Set2Set(self.pred_input_dim, self.pred_input_dim * 2)
 
-    def forward(self, x, adj, batch_num_nodes=None, **kwargs):
-        # mask
-        max_num_nodes = adj.size()[1]
-        if batch_num_nodes is not None:
-            embedding_mask = self.construct_mask(max_num_nodes, batch_num_nodes)
-        else:
-            embedding_mask = None
+#     def forward(self, x, adj, batch_num_nodes=None, **kwargs):
+#         # mask
+#         max_num_nodes = adj.size()[1]
+#         if batch_num_nodes is not None:
+#             embedding_mask = self.construct_mask(max_num_nodes, batch_num_nodes)
+#         else:
+#             embedding_mask = None
 
-        embedding_tensor = self.gcn_forward(x, adj,
-                self.conv_first, self.conv_block, self.conv_last, embedding_mask)
-        out = self.s2s(embedding_tensor)
-        #out, _ = torch.max(embedding_tensor, dim=1)
-        ypred = self.pred_model(out)
-        return ypred
+#         embedding_tensor = self.gcn_forward(x, adj,
+#                 self.conv_first, self.conv_block, self.conv_last, embedding_mask)
+#         out = self.s2s(embedding_tensor)
+#         #out, _ = torch.max(embedding_tensor, dim=1)
+#         ypred = self.pred_model(out)
+#         return ypred
 
 
 class SoftPoolingGcnEncoder(GcnEncoderGraph):

@@ -6,16 +6,18 @@ import numpy as np
 
 # ---- NetworkX compatibility
 def node_iter(G):
-    if float(nx.__version__)<2.0:
-        return G.nodes()
-    else:
-        return G.nodes
+    # if float(nx.__version__)<2.0:
+    #     return G.nodes()
+    # else:
+    #     return G.nodes
+    return G.nodes
 
 def node_dict(G):
-    if float(nx.__version__)>2.1:
-        node_dict = G.nodes
-    else:
-        node_dict = G.node
+    # if float(nx.__version__)>2.1:
+    #     node_dict = G.nodes
+    # else:
+    #     node_dict = G.node
+    node_dict = G.nodes
     return node_dict
 # ---------------------------
 

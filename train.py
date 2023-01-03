@@ -27,6 +27,8 @@ from graph_sampler import GraphSampler
 import load_data
 import util
 
+import warnings
+warnings.filterwarnings("ignore")
 
 def evaluate(dataset, model, args, name='Validation', max_num_examples=None):
     model.eval()
@@ -99,75 +101,75 @@ def log_assignment(assign_tensor, writer, epoch, batch_idx):
     data = tensorboardX.utils.figure_to_image(fig)
     writer.add_image('assignment', data, epoch)
 
-def log_graph(adj, batch_num_nodes, writer, epoch, batch_idx, assign_tensor=None):
-    plt.switch_backend('agg')
-    fig = plt.figure(figsize=(8,6), dpi=300)
+# def log_graph(adj, batch_num_nodes, writer, epoch, batch_idx, assign_tensor=None):
+#     plt.switch_backend('agg')
+#     fig = plt.figure(figsize=(8,6), dpi=300)
 
-    for i in range(len(batch_idx)):
-        ax = plt.subplot(2, 2, i+1)
-        num_nodes = batch_num_nodes[batch_idx[i]]
-        adj_matrix = adj[batch_idx[i], :num_nodes, :num_nodes].cpu().data.numpy()
-        G = nx.from_numpy_matrix(adj_matrix)
-        nx.draw(G, pos=nx.spring_layout(G), with_labels=True, node_color='#336699',
-                edge_color='grey', width=0.5, node_size=300,
-                alpha=0.7)
-        ax.xaxis.set_visible(False)
+#     for i in range(len(batch_idx)):
+#         ax = plt.subplot(2, 2, i+1)
+#         num_nodes = batch_num_nodes[batch_idx[i]]
+#         adj_matrix = adj[batch_idx[i], :num_nodes, :num_nodes].cpu().data.numpy()
+#         G = nx.from_numpy_matrix(adj_matrix)
+#         nx.draw(G, pos=nx.spring_layout(G), with_labels=True, node_color='#336699',
+#                 edge_color='grey', width=0.5, node_size=300,
+#                 alpha=0.7)
+#         ax.xaxis.set_visible(False)
 
-    plt.tight_layout()
-    fig.canvas.draw()
+#     plt.tight_layout()
+#     fig.canvas.draw()
 
-    #data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
-    #data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    data = tensorboardX.utils.figure_to_image(fig)
-    writer.add_image('graphs', data, epoch)
+#     #data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+#     #data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+#     data = tensorboardX.utils.figure_to_image(fig)
+#     writer.add_image('graphs', data, epoch)
 
-    # log a label-less version
-    #fig = plt.figure(figsize=(8,6), dpi=300)
-    #for i in range(len(batch_idx)):
-    #    ax = plt.subplot(2, 2, i+1)
-    #    num_nodes = batch_num_nodes[batch_idx[i]]
-    #    adj_matrix = adj[batch_idx[i], :num_nodes, :num_nodes].cpu().data.numpy()
-    #    G = nx.from_numpy_matrix(adj_matrix)
-    #    nx.draw(G, pos=nx.spring_layout(G), with_labels=False, node_color='#336699',
-    #            edge_color='grey', width=0.5, node_size=25,
-    #            alpha=0.8)
+#     # log a label-less version
+#     #fig = plt.figure(figsize=(8,6), dpi=300)
+#     #for i in range(len(batch_idx)):
+#     #    ax = plt.subplot(2, 2, i+1)
+#     #    num_nodes = batch_num_nodes[batch_idx[i]]
+#     #    adj_matrix = adj[batch_idx[i], :num_nodes, :num_nodes].cpu().data.numpy()
+#     #    G = nx.from_numpy_matrix(adj_matrix)
+#     #    nx.draw(G, pos=nx.spring_layout(G), with_labels=False, node_color='#336699',
+#     #            edge_color='grey', width=0.5, node_size=25,
+#     #            alpha=0.8)
 
-    #plt.tight_layout()
-    #fig.canvas.draw()
+#     #plt.tight_layout()
+#     #fig.canvas.draw()
 
-    #data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
-    #data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    #writer.add_image('graphs_no_label', data, epoch)
+#     #data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+#     #data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+#     #writer.add_image('graphs_no_label', data, epoch)
 
-    # colored according to assignment
-    assignment = assign_tensor.cpu().data.numpy()
-    fig = plt.figure(figsize=(8,6), dpi=300)
+#     # colored according to assignment
+#     assignment = assign_tensor.cpu().data.numpy()
+#     fig = plt.figure(figsize=(8,6), dpi=300)
 
-    num_clusters = assignment.shape[2]
-    all_colors = np.array(range(num_clusters))
+#     num_clusters = assignment.shape[2]
+#     all_colors = np.array(range(num_clusters))
 
-    for i in range(len(batch_idx)):
-        ax = plt.subplot(2, 2, i+1)
-        num_nodes = batch_num_nodes[batch_idx[i]]
-        adj_matrix = adj[batch_idx[i], :num_nodes, :num_nodes].cpu().data.numpy()
+#     for i in range(len(batch_idx)):
+#         ax = plt.subplot(2, 2, i+1)
+#         num_nodes = batch_num_nodes[batch_idx[i]]
+#         adj_matrix = adj[batch_idx[i], :num_nodes, :num_nodes].cpu().data.numpy()
 
-        label = np.argmax(assignment[batch_idx[i]], axis=1).astype(int)
-        label = label[: batch_num_nodes[batch_idx[i]]]
-        node_colors = all_colors[label]
+#         label = np.argmax(assignment[batch_idx[i]], axis=1).astype(int)
+#         label = label[: batch_num_nodes[batch_idx[i]]]
+#         node_colors = all_colors[label]
 
-        G = nx.from_numpy_matrix(adj_matrix)
-        nx.draw(G, pos=nx.spring_layout(G), with_labels=False, node_color=node_colors,
-                edge_color='grey', width=0.4, node_size=50, cmap=plt.get_cmap('Set1'),
-                vmin=0, vmax=num_clusters-1,
-                alpha=0.8)
+#         G = nx.from_numpy_matrix(adj_matrix)
+#         nx.draw(G, pos=nx.spring_layout(G), with_labels=False, node_color=node_colors,
+#                 edge_color='grey', width=0.4, node_size=50, cmap=plt.get_cmap('Set1'),
+#                 vmin=0, vmax=num_clusters-1,
+#                 alpha=0.8)
 
-    plt.tight_layout()
-    fig.canvas.draw()
+#     plt.tight_layout()
+#     fig.canvas.draw()
 
-    #data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
-    #data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    data = tensorboardX.utils.figure_to_image(fig)
-    writer.add_image('graphs_colored', data, epoch)
+#     #data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+#     #data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+#     data = tensorboardX.utils.figure_to_image(fig)
+#     writer.add_image('graphs_colored', data, epoch)
 
 
 def train(dataset, model, args, same_feat=True, val_dataset=None, test_dataset=None, writer=None,
@@ -197,6 +199,7 @@ def train(dataset, model, args, same_feat=True, val_dataset=None, test_dataset=N
         model.train()
         print('Epoch: ', epoch)
         for batch_idx, data in enumerate(dataset):
+            # print('in enum dataset')
             begin_time = time.time()
             model.zero_grad()
             adj = Variable(data['adj'].float(), requires_grad=False).cuda()
@@ -223,14 +226,15 @@ def train(dataset, model, args, same_feat=True, val_dataset=None, test_dataset=N
             # log once per XX epochs
             if epoch % 10 == 0 and batch_idx == len(dataset) // 2 and args.method == 'soft-assign' and writer is not None:
                 log_assignment(model.assign_tensor, writer, epoch, writer_batch_idx)
-                if args.log_graph:
-                    log_graph(adj, batch_num_nodes, writer, epoch, writer_batch_idx, model.assign_tensor)
-        avg_loss /= batch_idx + 1
+        #         if args.log_graph:
+        #             log_graph(adj, batch_num_nodes, writer, epoch, writer_batch_idx, model.assign_tensor)
+        # avg_loss /= batch_idx + 1
         if writer is not None:
             writer.add_scalar('loss/avg_loss', avg_loss, epoch)
             if args.linkpred:
                 writer.add_scalar('loss/linkpred_loss', model.link_loss, epoch)
         print('Avg loss: ', avg_loss, '; epoch time: ', total_time)
+        # import pdb; pdb.set_trace()
         result = evaluate(dataset, model, args, name='Train', max_num_examples=100)
         train_accs.append(result['acc'])
         train_epochs.append(epoch)
@@ -354,14 +358,14 @@ def syn_community1v2(args, writer=None, export_graphs=False):
                 input_dim, args.hidden_dim, args.output_dim, args.num_classes, args.num_gc_layers,
                 args.hidden_dim, assign_ratio=args.assign_ratio, num_pooling=args.num_pool,
                 bn=args.bn, linkpred=args.linkpred, assign_input_dim=assign_input_dim).cuda()
-    elif args.method == 'base-set2set':
-        print('Method: base-set2set')
-        model = encoders.GcnSet2SetEncoder(input_dim, args.hidden_dim, args.output_dim, 2,
-                args.num_gc_layers, bn=args.bn).cuda()
-    else:
-        print('Method: base')
-        model = encoders.GcnEncoderGraph(input_dim, args.hidden_dim, args.output_dim, 2,
-                args.num_gc_layers, bn=args.bn).cuda()
+    # elif args.method == 'base-set2set':
+    #     print('Method: base-set2set')
+    #     model = encoders.GcnSet2SetEncoder(input_dim, args.hidden_dim, args.output_dim, 2,
+    #             args.num_gc_layers, bn=args.bn).cuda()
+    # else:
+    #     print('Method: base')
+    #     model = encoders.GcnEncoderGraph(input_dim, args.hidden_dim, args.output_dim, 2,
+    #             args.num_gc_layers, bn=args.bn).cuda()
 
     train(train_dataset, model, args, val_dataset=val_dataset, test_dataset=test_dataset,
             writer=writer)
@@ -392,44 +396,44 @@ def syn_community2hier(args, writer=None):
                 input_dim, args.hidden_dim, args.output_dim, args.num_classes, args.num_gc_layers,
                 args.hidden_dim, assign_ratio=args.assign_ratio, num_pooling=args.num_pool,
                 bn=args.bn, linkpred=args.linkpred, args=args, assign_input_dim=assign_input_dim).cuda()
-    elif args.method == 'base-set2set':
-        print('Method: base-set2set')
-        model = encoders.GcnSet2SetEncoder(input_dim, args.hidden_dim, args.output_dim, 2,
-                args.num_gc_layers, bn=args.bn, args=args, assign_input_dim=assign_input_dim).cuda()
-    else:
-        print('Method: base')
-        model = encoders.GcnEncoderGraph(input_dim, args.hidden_dim, args.output_dim, 2,
-                args.num_gc_layers, bn=args.bn, args=args).cuda()
+    # elif args.method == 'base-set2set':
+    #     print('Method: base-set2set')
+    #     model = encoders.GcnSet2SetEncoder(input_dim, args.hidden_dim, args.output_dim, 2,
+    #             args.num_gc_layers, bn=args.bn, args=args, assign_input_dim=assign_input_dim).cuda()
+    # else:
+    #     print('Method: base')
+    #     model = encoders.GcnEncoderGraph(input_dim, args.hidden_dim, args.output_dim, 2,
+    #             args.num_gc_layers, bn=args.bn, args=args).cuda()
     train(train_dataset, model, args, val_dataset=val_dataset, test_dataset=test_dataset,
             writer=writer)
 
 
-def pkl_task(args, feat=None):
-    with open(os.path.join(args.datadir, args.pkl_fname), 'rb') as pkl_file:
-        data = pickle.load(pkl_file)
-    graphs = data[0]
-    labels = data[1]
-    test_graphs = data[2]
-    test_labels = data[3]
+# def pkl_task(args, feat=None):
+#     with open(os.path.join(args.datadir, args.pkl_fname), 'rb') as pkl_file:
+#         data = pickle.load(pkl_file)
+#     graphs = data[0]
+#     labels = data[1]
+#     test_graphs = data[2]
+#     test_labels = data[3]
 
-    for i in range(len(graphs)):
-        graphs[i].graph['label'] = labels[i]
-    for i in range(len(test_graphs)):
-        test_graphs[i].graph['label'] = test_labels[i]
+#     for i in range(len(graphs)):
+#         graphs[i].graph['label'] = labels[i]
+#     for i in range(len(test_graphs)):
+#         test_graphs[i].graph['label'] = test_labels[i]
 
-    if feat is None:
-        featgen_const = featgen.ConstFeatureGen(np.ones(args.input_dim, dtype=float))
-        for G in graphs:
-            featgen_const.gen_node_features(G)
-        for G in test_graphs:
-            featgen_const.gen_node_features(G)
+#     if feat is None:
+#         featgen_const = featgen.ConstFeatureGen(np.ones(args.input_dim, dtype=float))
+#         for G in graphs:
+#             featgen_const.gen_node_features(G)
+#         for G in test_graphs:
+#             featgen_const.gen_node_features(G)
 
-    train_dataset, test_dataset, max_num_nodes = prepare_data(graphs, args, test_graphs=test_graphs)
-    model = encoders.GcnEncoderGraph(
-            args.input_dim, args.hidden_dim, args.output_dim, args.num_classes, 
-            args.num_gc_layers, bn=args.bn).cuda()
-    train(train_dataset, model, args, test_dataset=test_dataset)
-    evaluate(test_dataset, model, args, 'Validation')
+#     train_dataset, test_dataset, max_num_nodes = prepare_data(graphs, args, test_graphs=test_graphs)
+#     model = encoders.GcnEncoderGraph(
+#             args.input_dim, args.hidden_dim, args.output_dim, args.num_classes, 
+#             args.num_gc_layers, bn=args.bn).cuda()
+#     train(train_dataset, model, args, test_dataset=test_dataset)
+#     evaluate(test_dataset, model, args, 'Validation')
 
 def benchmark_task(args, writer=None, feat='node-label'):
     graphs = load_data.read_graphfile(args.datadir, args.bmname, max_nodes=args.max_nodes)
@@ -458,16 +462,16 @@ def benchmark_task(args, writer=None, feat='node-label'):
                 args.hidden_dim, assign_ratio=args.assign_ratio, num_pooling=args.num_pool,
                 bn=args.bn, dropout=args.dropout, linkpred=args.linkpred, args=args,
                 assign_input_dim=assign_input_dim).cuda()
-    elif args.method == 'base-set2set':
-        print('Method: base-set2set')
-        model = encoders.GcnSet2SetEncoder(
-                input_dim, args.hidden_dim, args.output_dim, args.num_classes,
-                args.num_gc_layers, bn=args.bn, dropout=args.dropout, args=args).cuda()
-    else:
-        print('Method: base')
-        model = encoders.GcnEncoderGraph(
-                input_dim, args.hidden_dim, args.output_dim, args.num_classes, 
-                args.num_gc_layers, bn=args.bn, dropout=args.dropout, args=args).cuda()
+    # elif args.method == 'base-set2set':
+    #     print('Method: base-set2set')
+    #     model = encoders.GcnSet2SetEncoder(
+    #             input_dim, args.hidden_dim, args.output_dim, args.num_classes,
+    #             args.num_gc_layers, bn=args.bn, dropout=args.dropout, args=args).cuda()
+    # else:
+    #     print('Method: base')
+    #     model = encoders.GcnEncoderGraph(
+    #             input_dim, args.hidden_dim, args.output_dim, args.num_classes, 
+    #             args.num_gc_layers, bn=args.bn, dropout=args.dropout, args=args).cuda()
 
     train(train_dataset, model, args, val_dataset=val_dataset, test_dataset=test_dataset,
             writer=writer)
@@ -494,7 +498,8 @@ def benchmark_task_val(args, writer=None, feat='node-label'):
         for G in graphs:
             featgen_const.gen_node_features(G)
 
-    for i in range(10):
+    # for i in range(10):     #10-fold cross-validation
+    for i in range(1):
         train_dataset, val_dataset, max_num_nodes, input_dim, assign_input_dim = \
                 cross_val.prepare_val_data(graphs, args, i, max_nodes=args.max_nodes)
         if args.method == 'soft-assign':
@@ -505,16 +510,16 @@ def benchmark_task_val(args, writer=None, feat='node-label'):
                     args.hidden_dim, assign_ratio=args.assign_ratio, num_pooling=args.num_pool,
                     bn=args.bn, dropout=args.dropout, linkpred=args.linkpred, args=args,
                     assign_input_dim=assign_input_dim).cuda()
-        elif args.method == 'base-set2set':
-            print('Method: base-set2set')
-            model = encoders.GcnSet2SetEncoder(
-                    input_dim, args.hidden_dim, args.output_dim, args.num_classes,
-                    args.num_gc_layers, bn=args.bn, dropout=args.dropout, args=args).cuda()
-        else:
-            print('Method: base')
-            model = encoders.GcnEncoderGraph(
-                    input_dim, args.hidden_dim, args.output_dim, args.num_classes, 
-                    args.num_gc_layers, bn=args.bn, dropout=args.dropout, args=args).cuda()
+        # elif args.method == 'base-set2set':
+        #     print('Method: base-set2set')
+        #     model = encoders.GcnSet2SetEncoder(
+        #             input_dim, args.hidden_dim, args.output_dim, args.num_classes,
+        #             args.num_gc_layers, bn=args.bn, dropout=args.dropout, args=args).cuda()
+        # else:
+        #     print('Method: base')
+        #     model = encoders.GcnEncoderGraph(
+        #             input_dim, args.hidden_dim, args.output_dim, args.num_classes, 
+        #             args.num_gc_layers, bn=args.bn, dropout=args.dropout, args=args).cuda()
 
         _, val_accs = train(train_dataset, model, args, val_dataset=val_dataset, test_dataset=None,
             writer=writer)
@@ -605,7 +610,7 @@ def arg_parse():
                         lr=0.001,
                         clip=2.0,
                         batch_size=20,
-                        num_epochs=1000,
+                        num_epochs=2,
                         train_ratio=0.8,
                         test_ratio=0.1,
                         num_workers=1,
@@ -615,7 +620,7 @@ def arg_parse():
                         num_classes=2,
                         num_gc_layers=3,
                         dropout=0.0,
-                        method='base',
+                        method='soft-assign',
                         name_suffix='',
                         assign_ratio=0.1,
                         num_pool=1
@@ -638,13 +643,13 @@ def main():
 
     if prog_args.bmname is not None:
         benchmark_task_val(prog_args, writer=writer)
-    elif prog_args.pkl_fname is not None:
-        pkl_task(prog_args)
-    elif prog_args.dataset is not None:
-        if prog_args.dataset == 'syn1v2':
-            syn_community1v2(prog_args, writer=writer)
-        if prog_args.dataset == 'syn2hier':
-            syn_community2hier(prog_args, writer=writer)
+    # elif prog_args.pkl_fname is not None:
+    #     pkl_task(prog_args)
+    # elif prog_args.dataset is not None:
+    #     if prog_args.dataset == 'syn1v2':
+    #         syn_community1v2(prog_args, writer=writer)
+    #     if prog_args.dataset == 'syn2hier':
+    #         syn_community2hier(prog_args, writer=writer)
 
     writer.close()
 
