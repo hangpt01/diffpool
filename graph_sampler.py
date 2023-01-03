@@ -7,6 +7,9 @@ import util
 
 class GraphSampler(torch.utils.data.Dataset):
     ''' Sample graphs and nodes in graph
+    
+    max_num_nodes -- maximum number of nodes for each graph
+    
     '''
     def __init__(self, G_list, features='default', normalize=True, assign_feat='default', max_num_nodes=0):
         self.adj_all = []
@@ -16,7 +19,7 @@ class GraphSampler(torch.utils.data.Dataset):
         
         self.assign_feat_all = []
 
-        if max_num_nodes == 0:
+        if max_num_nodes == 0: 
             self.max_num_nodes = max([G.number_of_nodes() for G in G_list])
         else:
             self.max_num_nodes = max_num_nodes
@@ -48,7 +51,7 @@ class GraphSampler(torch.utils.data.Dataset):
             elif features == 'deg':
                 self.max_deg = 10
                 degs = np.sum(np.array(adj), 1).astype(int)
-                degs[degs>max_deg] = max_deg
+                degs[degs>self.max_deg] = self.max_deg
                 feat = np.zeros((len(degs), self.max_deg + 1))
                 feat[np.arange(len(degs)), degs] = 1
                 feat = np.pad(feat, ((0, self.max_num_nodes - G.number_of_nodes()), (0, 0)),

@@ -287,7 +287,7 @@ def prepare_data(graphs, args, test_graphs=None, max_nodes=0):
     else:
         train_idx = int(len(graphs) * args.train_ratio)
         train_graphs = graphs[:train_idx]
-        val_graphs = graph[train_idx:]
+        val_graphs = graphs[train_idx:]
     print('Num training graphs: ', len(train_graphs), 
           '; Num validation graphs: ', len(val_graphs),
           '; Num testing graphs: ', len(test_graphs))

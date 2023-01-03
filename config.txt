@@ -1,0 +1,3 @@
+dataset_len = 40000
+train_ratio = 0.85
+test_ratio = 0.025

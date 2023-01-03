@@ -6,24 +6,34 @@ import gen.feat as featgen
 import util
 
 def gen_ba(n_range, m_range, num_graphs, feature_generator=None):
+    '''
+    Barabási–Albert (BA): algorithm for generating random scale-free networks using a preferential attachment mechanism
+    function generates graphs and node features
+    n_range -- # nodes 
+    m_range -- # edges
+    '''
     graphs = []
     for i in np.random.choice(n_range, num_graphs):
         for j in np.random.choice(m_range, 1):
             graphs.append(nx.barabasi_albert_graph(i,j))
 
     if feature_generator is None:
-        feature_generator = ConstFeatureGen(0)
+        feature_generator = featgen.ConstFeatureGen(0)
     for G in graphs:
         feature_generator.gen_node_features(G)
     return graphs
 
 def gen_er(n_range, p, num_graphs, feature_generator=None):
+    '''
+    Erdos Renyl Model (for generating Random Graphs)
+    function generates graphs and node features
+    '''
     graphs = []
     for i in np.random.choice(n_range, num_graphs):
         graphs.append(nx.erdos_renyi_graph(i,p))
 
     if feature_generator is None:
-        feature_generator = ConstFeatureGen(0)
+        feature_generator = featgen.ConstFeatureGen(0)
     for G in graphs:
         feature_generator.gen_node_features(G)
     return graphs
@@ -32,6 +42,8 @@ def gen_2community_ba(n_range, m_range, num_graphs, inter_prob, feature_generato
     ''' Each community is a BA graph.
     Args:
         inter_prob: probability of one node connecting to any node in the other community.
+        n_range -- # nodes 
+        m_range -- # edges
     '''
 
     if feature_generators is None:
@@ -39,8 +51,8 @@ def gen_2community_ba(n_range, m_range, num_graphs, inter_prob, feature_generato
         mu1 = np.ones(10)
         sigma0 = np.ones(10, 10) * 0.1
         sigma1 = np.ones(10, 10) * 0.1
-        fg0 = GaussianFeatureGen(mu0, sigma0)
-        fg1 = GaussianFeatureGen(mu1, sigma1)
+        fg0 = featgen.GaussianFeatureGen(mu0, sigma0)
+        fg1 = featgen.GaussianFeatureGen(mu1, sigma1)
     else:
         fg0 = feature_generators[0]
         fg1 = feature_generators[1] if len(feature_generators) > 1 else feature_generators[0]
@@ -59,8 +71,8 @@ def gen_2community_ba(n_range, m_range, num_graphs, inter_prob, feature_generato
         n0 = graphs0[i].number_of_nodes()
         for j in range(n0):
             if np.random.rand() < inter_prob:
-                target = np.random.choice(G.number_of_nodes() - n0) + n0
-                G.add_edge(j, target)
+                target = np.random.choice(G.number_of_nodes() - n0) + n0    # n0 <= target <= G_num_nodes-1
+                G.add_edge(j, target)   # add edge between 2 nodes j and target
         graphs.append(G)
     return graphs
 
@@ -71,17 +83,20 @@ def gen_2hier(num_graphs, num_clusters, n, m_range, inter_prob1, inter_prob2, fe
             the large cluster.
         inter_prob2: probability of one node connecting to any node in the other community between
             the large cluster.
+        num_clusters: list?? of ??
     '''
     graphs = []
 
     for i in range(num_graphs):
         clusters2 = []
-        for j in range(len(num_clusters)):
-            clusters = gen_er(range(n, n+1), 0.5, num_clusters[j], feat_gen[0])
-            G = nx.disjoint_union_all(clusters)
+        for j in range(len(num_clusters)):     
+            # 1 graph has len(num_clusters) clusters
+            # each cluster j has num_clusters[j] nodes
+            clusters = gen_er(range(n, n+1), 0.5, num_clusters[j], feat_gen[0]) 
+            G = nx.disjoint_union_all(clusters)  
             for u1 in range(G.number_of_nodes()):
                 if np.random.rand() < inter_prob1:
-                    target = np.random.choice(G.number_of_nodes() - n)
+                    target = np.random.choice(G.number_of_nodes() - n)      # 0 -> G.number_of_nodes() - n -1
                     # move one cluster after to make sure it's not an intra-cluster edge
                     if target // n >= u1 // n:
                         target += n
