@@ -3,6 +3,8 @@ import numpy as np
 import scanpy as sc
 from itertools import combinations
 import pickle as pk
+import random
+import copy
 # import os
 # import re
 
@@ -126,7 +128,37 @@ def get_adj_list(gene_locus_):
         #     break
     return adj_list
 
-def get_graphs():
+def get_atac_gex_indices(gene_locus_, gene_locus_int_, group_id=0):
+    group_genes = pk.load(open('data/atac-gex/raw/group_genes.pkl', 'rb'))
+    pw = pk.load(open('data/atac-gex/raw/pw.pkl', 'rb'))
+    ls_atac_indices = []
+    ls_gex_indices = []
+    atac_gex_dict = {}
+    list_genes = list(gene_locus_.keys())
+    for gene in group_genes[group_id]:
+        if gene in list_genes:
+            gene_id = list_genes.index(gene)
+            atac_gex_dict[gene_id] = gene_locus_int_[gene_id]
+            for i in gene_locus_int_[gene_id]:
+                ls_atac_indices.append(i)
+            ls_gex_indices.append(gene_id)
+    return atac_gex_dict, ls_atac_indices, ls_gex_indices        
+        
+def create_inter_cluster_edges(atac_gex_dict_, ls_gex_indices_):
+    ls_edge = []
+    combs_gene_pair = list(combinations(range(len(atac_gex_dict_)),2))
+
+    for gene_id1, gene_id2 in combs_gene_pair:
+        atac1 = atac_gex_dict_[ls_gex_indices_[gene_id1]]
+        atac2 = atac_gex_dict_[ls_gex_indices_[gene_id2]]
+        if len(atac1) > 0 and len(atac2) > 0:
+            i = random.choice(atac1)
+            j = random.choice(atac2)
+            ls_edge.append((i,j))
+        
+    return ls_edge
+
+def get_graphs(num_test_graphs=40, group_id=0):
     '''
         graph_labels: GEX vector
     '''
@@ -151,32 +183,75 @@ def get_graphs():
     graphs = []
     # for i in range(atac_test_np.shape[0]*39): # train+val: test_ratio=0.025*total
     # test with 1/200: 5/1000 gex vector first
-    for i in range(5*39): # train+val: test_ratio=0.025*total    
-        node_list = list(range(atac_train_np.shape[1]))
-        G=nx.Graph()
+    
+    atac_gex_dict, ls_atac_indices, ls_gex_indices = get_atac_gex_indices(gene_locus, gene_locus_int, group_id)   
+    
+    node_list = list(range(len(ls_atac_indices)))
+    adj_list = get_adj_list(atac_gex_dict)
+    inter_cluster_edges_list =  create_inter_cluster_edges(atac_gex_dict, ls_gex_indices)
+    
+    # base_G = nx.Graph()
+    # base_G.add_nodes_from(node_list)
+    # base_G.add_edges_from(adj_list)
+    # base_G.add_edges_from(inter_cluster_edges_list)
+    
+    for i in range(num_test_graphs*39): # train+val: test_ratio=0.025*total    
+        # G = copy.deepcopy(base_G)
+        
+        G = nx.Graph()
         G.add_nodes_from(node_list)
-        G.add_edges_from(get_adj_list(gene_locus_int))
+        G.add_edges_from(adj_list)
+        G.add_edges_from(inter_cluster_edges_list)
+        
+        # print(G.number_of_nodes())
         for u in G.nodes:
-            G.nodes[u]['feat'] = atac_train_np[i,:][u]
+            G.nodes[u]['feat'] = atac_train_np[i,u]
+            # print(G.nodes[u]['feat'])
         
         G.graph['feat_dim'] = 1
-        G.graph['label'] = gex_train_np[i,:]
-        graphs.append(G)
+        G.graph['label'] = gex_train_np[i,ls_gex_indices]
+        # print(G.graph['label'].shape)   # num_genes
+        
+        # relabeling
+        mapping={}
+        it=0
+        for n in G.nodes:
+            mapping[n]=it
+            it+=1
+            
+        # indexed from 0
+        graphs.append(nx.relabel_nodes(G, mapping))
         
     # for i in range(atac_test_np.shape[0]): # test
-    for i in range(5): # test
-        node_list = list(range(atac_train_np.shape[1]))
-        G=nx.Graph()
+    for i in range(num_test_graphs): # test
+        # G = copy.deepcopy(base_G)
+        
+        G = nx.Graph()
         G.add_nodes_from(node_list)
-        G.add_edges_from(get_adj_list(gene_locus_int))
+        G.add_edges_from(adj_list)
+        G.add_edges_from(inter_cluster_edges_list)
+        
+        # print(G.number_of_nodes())
         for u in G.nodes:
-            G.nodes[u]['feat'] = atac_test_np[i,:][u]
+            G.nodes[u]['feat'] = atac_test_np[i,u]
+            # print(G.nodes[u]['feat'])
         
         G.graph['feat_dim'] = 1
-        G.graph['label'] = gex_test_np[i,:]
-        graphs.append(G)
-    
-    return graphs
+        G.graph['label'] = gex_test_np[i,ls_gex_indices]
+        # print(G.graph['label'].shape)   # num_genes
+        
+        # relabeling
+        mapping={}
+        it=0
+        for n in G.nodes:
+            mapping[n]=it
+            it+=1
+            
+        # indexed from 0
+        graphs.append(nx.relabel_nodes(G, mapping))
+        
+    print("Done loading graphs")
+    return graphs      
 
 if __name__ == '__main__':
     get_graphs()

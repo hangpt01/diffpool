@@ -184,20 +184,22 @@ class GcnEncoderGraph(nn.Module):   # base
         else:
             output = out
         ypred = self.pred_model(output)
-        #print(output.size())
+        print("output, y_pred", output.size(), ypred.size())
         return ypred
 
-    def loss(self, pred, label, type='softmax'):
-        # softmax + CE
-        if type == 'softmax':
-            return F.cross_entropy(pred, label, reduction='mean')
-        elif type == 'margin':
-            batch_size = pred.size()[0]
-            label_onehot = torch.zeros(batch_size, self.label_dim).long().cuda()
-            label_onehot.scatter_(1, label.view(-1,1), 1)
-            return torch.nn.MultiLabelMarginLoss()(pred, label_onehot)
+    # def loss(self, pred, label, type='softmax'):
+    #     # softmax + CE
+    #     if type == 'softmax':
+    #         return F.cross_entropy(pred, label, reduction='mean')
+    #     elif type == 'margin':
+    #         batch_size = pred.size()[0]
+    #         label_onehot = torch.zeros(batch_size, self.label_dim).long().cuda()
+    #         label_onehot.scatter_(1, label.view(-1,1), 1)
+    #         return torch.nn.MultiLabelMarginLoss()(pred, label_onehot)
             
-        #return F.binary_cross_entropy(F.sigmoid(pred[:,0]), label.float())
+    #     #return F.binary_cross_entropy(F.sigmoid(pred[:,0]), label.float())
+    def loss(self, pred, label):
+        return F.mse_loss(pred, label)
 
 
 # class GcnSet2SetEncoder(GcnEncoderGraph):
@@ -226,7 +228,7 @@ class GcnEncoderGraph(nn.Module):   # base
 class SoftPoolingGcnEncoder(GcnEncoderGraph):
     def __init__(self, max_num_nodes, input_dim, hidden_dim, embedding_dim, label_dim, num_layers,
             assign_hidden_dim, assign_ratio=0.25, assign_num_layers=-1, num_pooling=1,
-            pred_hidden_dims=[50], concat=True, bn=True, dropout=0.0, linkpred=True,
+            pred_hidden_dims=[50], concat=True, bn=True, dropout=0.0, linkpred=False,
             assign_input_dim=-1, args=None):
         '''
         Args:
@@ -363,6 +365,7 @@ class SoftPoolingGcnEncoder(GcnEncoderGraph):
         else:
             output = out
         ypred = self.pred_model(output)
+        # import pdb; pdb.set_trace()
         return ypred
 
     def loss(self, pred, label, adj=None, batch_num_nodes=None, adj_hop=1):
@@ -372,6 +375,8 @@ class SoftPoolingGcnEncoder(GcnEncoderGraph):
         '''
         eps = 1e-7
         loss = super(SoftPoolingGcnEncoder, self).loss(pred, label)
+        # import pdb; pdb.set_trace()
+        self.linkpred = False
         if self.linkpred:
             max_num_nodes = adj.size()[1]
             pred_adj0 = self.assign_tensor @ torch.transpose(self.assign_tensor, 1, 2) 

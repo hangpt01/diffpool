@@ -25,7 +25,8 @@ class GraphSampler(torch.utils.data.Dataset):
             self.max_num_nodes = max_num_nodes
 
         #if features == 'default':
-        self.feat_dim = util.node_dict(G_list[0])[0]['feat'].shape[0]
+        # self.feat_dim = util.node_dict(G_list[0])[0]['feat'].shape[0]
+        self.feat_dim = G_list[0].graph['feat_dim'] = 1
 
         for G in G_list:
             adj = np.array(nx.to_numpy_matrix(G))
@@ -38,8 +39,11 @@ class GraphSampler(torch.utils.data.Dataset):
             # feat matrix: max_num_nodes x feat_dim
             if features == 'default':
                 f = np.zeros((self.max_num_nodes, self.feat_dim), dtype=float)
+                # print(f.shape)
                 for i,u in enumerate(G.nodes()):
-                    f[i,:] = util.node_dict(G)[u]['feat']
+                    # f[i,:] = util.node_dict(G)[u]['feat']
+                    # print(f[i].shape, G.nodes[u]['feat'].shape, G.nodes[u]['feat'])
+                    f[i] = G.nodes[u]['feat']
                 self.feature_all.append(f)
             elif features == 'id':
                 self.feature_all.append(np.identity(self.max_num_nodes))
@@ -59,7 +63,8 @@ class GraphSampler(torch.utils.data.Dataset):
 
                 f = np.zeros((self.max_num_nodes, self.feat_dim), dtype=float)
                 for i,u in enumerate(util.node_iter(G)):
-                    f[i,:] = util.node_dict(G)[u]['feat']
+                    # f[i,:] = util.node_dict(G)[u]['feat']
+                    f[i,:] = G.nodes[u]['feat']
 
                 feat = np.concatenate((feat, f), axis=1)
 
@@ -79,13 +84,13 @@ class GraphSampler(torch.utils.data.Dataset):
                                                     'constant'),
                                              axis=1)
                 g_feat = np.hstack([degs, clusterings])
-                if 'feat' in util.node_dict(G)[0]:
-                    node_feats = np.array([util.node_dict(G)[i]['feat'] for i in range(G.number_of_nodes())])
-                    node_feats = np.pad(node_feats, ((0, self.max_num_nodes - G.number_of_nodes()), (0, 0)),
-                                        'constant')
-                    g_feat = np.hstack([g_feat, node_feats])
+                # if 'feat' in util.node_dict(G)[0]:
+                #     node_feats = np.array([util.node_dict(G)[i]['feat'] for i in range(G.number_of_nodes())])
+                #     node_feats = np.pad(node_feats, ((0, self.max_num_nodes - G.number_of_nodes()), (0, 0)),
+                #                         'constant')
+                #     g_feat = np.hstack([g_feat, node_feats])
 
-                self.feature_all.append(g_feat)
+                # self.feature_all.append(g_feat)
 
             if assign_feat == 'id':
                 self.assign_feat_all.append(

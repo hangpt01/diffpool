@@ -26,8 +26,11 @@ def prepare_val_data(graphs, args, val_idx, max_nodes=0):
             "{0:.2f}".format(np.std([G.number_of_nodes() for G in graphs])))
 
     # minibatch
+#     import pdb; pdb.set_trace()
+#     print("Before sampler")
     dataset_sampler = GraphSampler(train_graphs, normalize=False, max_num_nodes=max_nodes,
             features=args.feature_type)
+#     print("After sampler")
     train_dataset_loader = torch.utils.data.DataLoader(
             dataset_sampler, 
             batch_size=args.batch_size, 
