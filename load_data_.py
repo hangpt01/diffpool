@@ -160,9 +160,11 @@ def create_inter_cluster_edges(inter_gene_list_, gene_locus_int_):
     return ls_edge
 
 def get_graphs(num_test_graphs=40, group_id=0):
+    import time
     '''
         graph_labels: GEX vector
     '''
+    start_time = time.time()
     atac_train_path = 'data/atac-gex/paperdata/chr1/atac_train_chr1.h5ad'
     atac_test_path = 'data/atac-gex/paperdata/chr1/atac_test_chr1.h5ad'
     gex_train_path = 'data/atac-gex/paperdata/chr1/gex_train_chr1.h5ad'
@@ -203,8 +205,9 @@ def get_graphs(num_test_graphs=40, group_id=0):
     # base_G.add_nodes_from(node_list)
     # base_G.add_edges_from(adj_list)
     # base_G.add_edges_from(inter_cluster_edges_list)
-    
-    for i in range(num_test_graphs*39): # train+val: test_ratio=0.025*total    
+    print(time.time() - start_time)
+    start_time = time.time()
+    for i in range(num_test_graphs): # train+val: test_ratio=0.025*total    
         # G = copy.deepcopy(base_G)
         
         G = nx.Graph()
@@ -232,7 +235,8 @@ def get_graphs(num_test_graphs=40, group_id=0):
             
         # indexed from 0
         graphs.append(nx.relabel_nodes(G, mapping))
-        
+    
+    start_time = time.time()
     # for i in range(atac_test_np.shape[0]): # test
     for i in range(num_test_graphs): # test
         # G = copy.deepcopy(base_G)
@@ -263,7 +267,7 @@ def get_graphs(num_test_graphs=40, group_id=0):
             
         # indexed from 0
         graphs.append(nx.relabel_nodes(G, mapping))
-        
+    print(time.time() - start_time)
     print("Done loading graphs")
     return graphs, gene_locus_int      
 

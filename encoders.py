@@ -383,7 +383,6 @@ class SoftPoolingGcnEncoder(GcnEncoderGraph):
         else:
             output = out
         ypred = self.pred_model(output)
-        # import pdb; pdb.set_trace()
         return ypred
 
     def loss(self, pred, label, adj=None, batch_num_nodes=None, adj_hop=1):
@@ -393,7 +392,6 @@ class SoftPoolingGcnEncoder(GcnEncoderGraph):
         '''
         eps = 1e-7
         loss = super(SoftPoolingGcnEncoder, self).loss(pred, label)
-        # import pdb; pdb.set_trace()
         self.linkpred = False
         # if self.linkpred:
         #     max_num_nodes = adj.size()[1]
