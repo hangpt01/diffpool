@@ -2,6 +2,7 @@ import networkx as nx
 import numpy as np
 import torch
 import torch.utils.data
+import sys
 
 import util
 
@@ -26,10 +27,12 @@ class GraphSampler(torch.utils.data.Dataset):
 
         #if features == 'default':
         # self.feat_dim = util.node_dict(G_list[0])[0]['feat'].shape[0]
-        self.feat_dim = G_list[0].graph['feat_dim'] = 1
+        self.feat_dim = G_list[0].graph['feat_dim']
+        print("Graph feat dim",self.feat_dim)
 
         for G in G_list:
             adj = np.array(nx.to_numpy_matrix(G))
+            # print(sys.getsizeof(adj))
             if normalize:
                 sqrt_deg = np.diag(1.0 / np.sqrt(np.sum(adj, axis=0, dtype=float).squeeze()))
                 adj = np.matmul(np.matmul(sqrt_deg, adj), sqrt_deg)
@@ -40,6 +43,7 @@ class GraphSampler(torch.utils.data.Dataset):
             if features == 'default':
                 f = np.zeros((self.max_num_nodes, self.feat_dim), dtype=float)
                 # print(f.shape)
+                # print(G.number_of_nodes())
                 for i,u in enumerate(G.nodes()):
                     # f[i,:] = util.node_dict(G)[u]['feat']
                     # print(f[i].shape, G.nodes[u]['feat'].shape, G.nodes[u]['feat'])

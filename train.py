@@ -12,12 +12,15 @@ from torch.autograd import Variable
 import tensorboardX
 from tensorboardX import SummaryWriter
 
+from tqdm import tqdm
+
 import argparse
 import os
 import pickle
 import random
 import shutil
 import time
+import sys
 
 import cross_val
 import encoders
@@ -36,29 +39,34 @@ def evaluate(dataset, model, args, name='Validation', max_num_examples=None):
 
     labels = []
     preds = []
-    for batch_idx, data in enumerate(dataset):
-        adj = Variable(data['adj'].float(), requires_grad=False).cuda()
-        h0 = Variable(data['feats'].float()).cuda()
-        labels.append(data['label'].long().numpy())
-        batch_num_nodes = data['num_nodes'].int().numpy()
-        assign_input = Variable(data['assign_feats'].float(), requires_grad=False).cuda()
+    with torch.no_grad():
+        for batch_idx, data in enumerate(dataset):
+            adj = Variable(data['adj'].float(), requires_grad=False).cuda()
+            h0 = Variable(data['feats'].float()).cuda()
+            labels.append(data['label'].long().numpy())
+            batch_num_nodes = data['num_nodes'].int().numpy()
+            assign_input = Variable(data['assign_feats'].float(), requires_grad=False).cuda()
 
-        ypred = model(h0, adj, batch_num_nodes, assign_x=assign_input)
-        _, indices = torch.max(ypred, 1)
-        preds.append(indices.cpu().data.numpy())
+            ypred = model(h0, adj, batch_num_nodes, assign_x=assign_input)
+            preds.append(ypred.cpu().data.numpy())
+            # import pdb; pdb.set_trace()
+            # _, indices = torch.max(ypred, 1)
+            # preds.append(indices.cpu().data.numpy())
 
-        if max_num_examples is not None:
-            if (batch_idx+1)*args.batch_size > max_num_examples:
-                break
+            # if max_num_examples is not None:
+            #     if (batch_idx+1)*args.batch_size > max_num_examples:
+            #         break
 
     labels = np.hstack(labels)
     preds = np.hstack(preds)
     
-    result = {'prec': metrics.precision_score(labels, preds, average='macro'),
-              'recall': metrics.recall_score(labels, preds, average='macro'),
-              'acc': metrics.accuracy_score(labels, preds),
-              'F1': metrics.f1_score(labels, preds, average="micro")}
-    print(name, " accuracy:", result['acc'])
+    # result = {'prec': metrics.precision_score(labels, preds, average='macro'),
+    #           'recall': metrics.recall_score(labels, preds, average='macro'),
+    #           'acc': metrics.accuracy_score(labels, preds),
+    #           'F1': metrics.f1_score(labels, preds, average="micro")}
+    # print(name, " accuracy:", result['acc'])
+    result = metrics.mean_squared_error(labels, preds)
+    print(name, "MSE loss: ", result)
     return result
 
 def gen_prefix(args):
@@ -195,15 +203,17 @@ def train(dataset, model, args, same_feat=True, val_dataset=None, test_dataset=N
     test_accs = []
     test_epochs = []
     val_accs = []
+    # import pdb; pdb.set_trace()
     for epoch in range(args.num_epochs):
         total_time = 0
         avg_loss = 0.0
         model.train()
         print('Epoch: ', epoch)
         for batch_idx, data in enumerate(dataset):
-            # print('in enum dataset')
             begin_time = time.time()
             model.zero_grad()
+            adj = Variable(data['adj'].float(), requires_grad=False)
+            # print("Size",sys.getsizeof(adj))    
             adj = Variable(data['adj'].float(), requires_grad=False).cuda()
             h0 = Variable(data['feats'].float(), requires_grad=False).cuda()
             label = Variable(data['label'].long()).cuda()
@@ -226,36 +236,38 @@ def train(dataset, model, args, same_feat=True, val_dataset=None, test_dataset=N
             total_time += elapsed
 
             # log once per XX epochs
-            if epoch % 10 == 0 and batch_idx == len(dataset) // 2 and args.method == 'soft-assign' and writer is not None:
-                log_assignment(model.assign_tensor, writer, epoch, writer_batch_idx)
+            # if epoch % 10 == 0 and batch_idx == len(dataset) // 2 and args.method == 'soft-assign' and writer is not None:
+            #     log_assignment(model.assign_tensor, writer, epoch, writer_batch_idx)
         #         if args.log_graph:
         #             log_graph(adj, batch_num_nodes, writer, epoch, writer_batch_idx, model.assign_tensor)
-        # avg_loss /= batch_idx + 1
+        avg_loss /= batch_idx + 1
         if writer is not None:
             writer.add_scalar('loss/avg_loss', avg_loss, epoch)
             if args.linkpred:
                 writer.add_scalar('loss/linkpred_loss', model.link_loss, epoch)
-        print('Avg loss: ', avg_loss, '; epoch time: ', total_time)
+        print('Avg loss: ', avg_loss.item(), '; epoch time: ', total_time)
         # import pdb; pdb.set_trace()
         result = evaluate(dataset, model, args, name='Train', max_num_examples=100)
-        train_accs.append(result['acc'])
+        # train_accs.append(result['acc'])
+        train_accs.append(result)
         train_epochs.append(epoch)
         if val_dataset is not None:
             val_result = evaluate(val_dataset, model, args, name='Validation')
-            val_accs.append(val_result['acc'])
-        if val_result['acc'] > best_val_result['acc'] - 1e-7:
-            best_val_result['acc'] = val_result['acc']
+            val_accs.append(val_result)
+        if val_result > best_val_result['acc'] - 1e-7:
+            best_val_result['acc'] = val_result
             best_val_result['epoch'] = epoch
-            best_val_result['loss'] = avg_loss
+            best_val_result['loss'] = avg_loss.item()
         if test_dataset is not None:
-            test_result = evaluate(test_dataset, model, args, name='Test')
+            test_result_ = evaluate(test_dataset, model, args, name='Test')
+            test_result['acc'] = test_result_
             test_result['epoch'] = epoch
-        if writer is not None:
-            writer.add_scalar('acc/train_acc', result['acc'], epoch)
-            writer.add_scalar('acc/val_acc', val_result['acc'], epoch)
-            writer.add_scalar('loss/best_val_loss', best_val_result['loss'], epoch)
-            if test_dataset is not None:
-                writer.add_scalar('acc/test_acc', test_result['acc'], epoch)
+        # if writer is not None:
+        #     writer.add_scalar('acc/train_acc', result['acc'], epoch)
+        #     writer.add_scalar('acc/val_acc', val_result['acc'], epoch)
+        #     writer.add_scalar('loss/best_val_loss', best_val_result['loss'], epoch)
+        #     if test_dataset is not None:
+        #         writer.add_scalar('acc/test_acc', test_result['acc'], epoch)
 
         print('Best val result: ', best_val_result)
         best_val_epochs.append(best_val_result['epoch'])
@@ -265,19 +277,19 @@ def train(dataset, model, args, same_feat=True, val_dataset=None, test_dataset=N
             test_epochs.append(test_result['epoch'])
             test_accs.append(test_result['acc'])
 
-    matplotlib.style.use('seaborn')
-    plt.switch_backend('agg')
-    plt.figure()
-    plt.plot(train_epochs, util.exp_moving_avg(train_accs, 0.85), '-', lw=1)
-    if test_dataset is not None:
-        plt.plot(best_val_epochs, best_val_accs, 'bo', test_epochs, test_accs, 'go')
-        plt.legend(['train', 'val', 'test'])
-    else:
-        plt.plot(best_val_epochs, best_val_accs, 'bo')
-        plt.legend(['train', 'val'])
-    plt.savefig(gen_train_plt_name(args), dpi=600)
-    plt.close()
-    matplotlib.style.use('default')
+    # matplotlib.style.use('seaborn')
+    # plt.switch_backend('agg')
+    # plt.figure()
+    # plt.plot(train_epochs, util.exp_moving_avg(train_accs, 0.85), '-', lw=1)
+    # if test_dataset is not None:
+    #     plt.plot(best_val_epochs, best_val_accs, 'bo', test_epochs, test_accs, 'go')
+    #     plt.legend(['train', 'val', 'test'])
+    # else:
+    #     plt.plot(best_val_epochs, best_val_accs, 'bo')
+    #     plt.legend(['train', 'val'])
+    # plt.savefig(gen_train_plt_name(args), dpi=600)
+    # plt.close()
+    # matplotlib.style.use('default')
 
     return model, val_accs
 
@@ -438,6 +450,7 @@ def train(dataset, model, args, same_feat=True, val_dataset=None, test_dataset=N
 #     train(train_dataset, model, args, test_dataset=test_dataset)
 #     evaluate(test_dataset, model, args, 'Validation')
 
+#not used
 def benchmark_task(args, writer=None, feat='node-label'):
     graphs = load_data.read_graphfile(args.datadir, args.bmname, max_nodes=args.max_nodes)
     
@@ -483,7 +496,7 @@ def benchmark_task(args, writer=None, feat='node-label'):
 
 def benchmark_task_val(args, writer=None, feat='node-feat'):
     all_vals = []
-    graphs = load_data_.get_graphs(num_test_graphs=2)
+    graphs, gene_locus_int = load_data_.get_graphs(num_test_graphs=2)
 #     graphs = load_data.read_graphfile(args.datadir, args.bmname, max_nodes=args.max_nodes)
 
     example_node = util.node_dict(graphs[0])[0]
@@ -507,12 +520,13 @@ def benchmark_task_val(args, writer=None, feat='node-feat'):
     for i in range(1):
         train_dataset, val_dataset, max_num_nodes, input_dim, assign_input_dim = \
                 cross_val.prepare_val_data(graphs, args, i, max_nodes=args.max_nodes)
+        print(len(train_dataset), len(val_dataset))
         if args.method == 'soft-assign':
             print('Method: soft-assign')
             model = encoders.SoftPoolingGcnEncoder(
                     max_num_nodes, 
                     input_dim, args.hidden_dim, args.output_dim, args.num_classes, args.num_gc_layers,
-                    args.hidden_dim, assign_ratio=args.assign_ratio, num_pooling=args.num_pool,
+                    args.hidden_dim, gene_locus_int, assign_ratio=args.assign_ratio, num_pooling=args.num_pool,
                     bn=args.bn, dropout=args.dropout, linkpred=args.linkpred, args=args,
                     assign_input_dim=assign_input_dim).cuda()
         # elif args.method == 'base-set2set':
@@ -532,8 +546,8 @@ def benchmark_task_val(args, writer=None, feat='node-feat'):
     all_vals = np.vstack(all_vals)
     all_vals = np.mean(all_vals, axis=0)
     print(all_vals)
-    print(np.max(all_vals))
-    print(np.argmax(all_vals))
+    print(np.min(all_vals))
+    print(np.argmin(all_vals))
     
     
 def arg_parse():
@@ -610,22 +624,24 @@ def arg_parse():
                         # datadir='data',
                         logdir='log',
                         # dataset='syn1v2',
-                        max_nodes=60263,
+                        # max_nodes=60263,
+                        max_nodes=5725,
                         cuda='1',
                         feature_type='default',
                         lr=0.001,
                         clip=2.0,
-                        batch_size=20,
-                        num_epochs=2,
+                        batch_size=1,
+                        num_epochs=100,
                         train_ratio=0.85,
                         test_ratio=0.025,
-                        num_workers=1,
-                        input_dim=10,
-                        hidden_dim=20,
-                        output_dim=20,
+                        num_workers=0,
+                        input_dim=512,
+                        hidden_dim=128,
+                        output_dim=512,
                         # num_classes=2,
-                        num_classes=12348,
-                        num_gc_layers=1,
+                        # num_classes=12348,
+                        num_classes=1235,
+                        num_gc_layers=2,
                         dropout=0.0,
                         method='soft-assign',
                         name_suffix='',

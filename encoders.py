@@ -199,7 +199,7 @@ class GcnEncoderGraph(nn.Module):   # base
             
     #     #return F.binary_cross_entropy(F.sigmoid(pred[:,0]), label.float())
     def loss(self, pred, label):
-        return F.mse_loss(pred, label)
+        return F.mse_loss(pred.to(torch.float32), label.to(torch.float32))
 
 
 # class GcnSet2SetEncoder(GcnEncoderGraph):
@@ -227,7 +227,7 @@ class GcnEncoderGraph(nn.Module):   # base
 
 class SoftPoolingGcnEncoder(GcnEncoderGraph):
     def __init__(self, max_num_nodes, input_dim, hidden_dim, embedding_dim, label_dim, num_layers,
-            assign_hidden_dim, assign_ratio=0.25, assign_num_layers=-1, num_pooling=1,
+            assign_hidden_dim, gene_locus_int, assign_ratio=0.25, assign_num_layers=-1, num_pooling=1,
             pred_hidden_dims=[50], concat=True, bn=True, dropout=0.0, linkpred=False,
             assign_input_dim=-1, args=None):
         '''
@@ -235,14 +235,19 @@ class SoftPoolingGcnEncoder(GcnEncoderGraph):
             num_layers: number of gc layers before each pooling
             num_nodes: number of nodes for each graph in batch
             linkpred: flag to turn on link prediction side objective
+            label_dim=num_classes
         '''
 
         super(SoftPoolingGcnEncoder, self).__init__(input_dim, hidden_dim, embedding_dim, label_dim,
-                num_layers, pred_hidden_dims=pred_hidden_dims, concat=concat, args=args)
+                num_layers, pred_hidden_dims=pred_hidden_dims, concat=concat, args=args, )
         add_self = not concat
         self.num_pooling = num_pooling
         self.linkpred = linkpred
         self.assign_ent = True
+        self.max_num_nodes = max_num_nodes
+        print("Max num nodes in model: ", self.max_num_nodes)
+        self.gene_locus_int = gene_locus_int
+        self.label_dim = label_dim
 
         # GC
         self.conv_first_after_pool = nn.ModuleList()
@@ -268,7 +273,8 @@ class SoftPoolingGcnEncoder(GcnEncoderGraph):
         self.assign_conv_block_modules = nn.ModuleList()
         self.assign_conv_last_modules = nn.ModuleList()
         self.assign_pred_modules = nn.ModuleList()
-        assign_dim = int(max_num_nodes * assign_ratio)
+        # assign_dim = int(max_num_nodes * assign_ratio)
+        assign_dim = label_dim
         for i in range(num_pooling):
             assign_dims.append(assign_dim)
             assign_conv_first, assign_conv_block, assign_conv_last = self.build_conv_layers(
@@ -280,7 +286,8 @@ class SoftPoolingGcnEncoder(GcnEncoderGraph):
 
             # next pooling layer
             assign_input_dim = self.pred_input_dim
-            assign_dim = int(assign_dim * assign_ratio)
+            # assign_dim = int(assign_dim * assign_ratio)
+            assign_dim = label_dim
 
             self.assign_conv_first_modules.append(assign_conv_first)
             self.assign_conv_block_modules.append(assign_conv_block)
@@ -295,6 +302,14 @@ class SoftPoolingGcnEncoder(GcnEncoderGraph):
                 m.weight.data = init.xavier_uniform(m.weight.data, gain=nn.init.calculate_gain('relu'))
                 if m.bias is not None:
                     m.bias.data = init.constant(m.bias.data, 0.0)
+
+    def get_gene_assignment_matrix(self):
+        s = np.zeros((self.max_num_nodes, self.label_dim))
+        for k,v in self.gene_locus_int.items():
+            a = np.zeros((self.max_num_nodes))
+            a[v] = 1
+            s[:,k] = a
+        return torch.from_numpy(s)
 
     def forward(self, x, adj, batch_num_nodes, **kwargs):
         if 'assign_x' in kwargs:
@@ -338,11 +353,14 @@ class SoftPoolingGcnEncoder(GcnEncoderGraph):
                     self.assign_conv_first_modules[i], self.assign_conv_block_modules[i], self.assign_conv_last_modules[i],
                     embedding_mask)
             # [batch_size x num_nodes x next_lvl_num_nodes]
-            self.assign_tensor = nn.Softmax(dim=-1)(self.assign_pred_modules[i](self.assign_tensor))
+            # assignment matrix
+            # self.assign_tensor = nn.Softmax(dim=-1)(self.assign_pred_modules[i](self.assign_tensor))
+            self.assign_tensor = self.get_gene_assignment_matrix().to(torch.float32).cuda()
             if embedding_mask is not None:
                 self.assign_tensor = self.assign_tensor * embedding_mask
 
             # update pooled features and adj matrix
+            # print(self.assign_tensor.dtype, embedding_tensor.dtype)
             x = torch.matmul(torch.transpose(self.assign_tensor, 1, 2), embedding_tensor)
             adj = torch.transpose(self.assign_tensor, 1, 2) @ adj @ self.assign_tensor
             x_a = x
@@ -377,30 +395,30 @@ class SoftPoolingGcnEncoder(GcnEncoderGraph):
         loss = super(SoftPoolingGcnEncoder, self).loss(pred, label)
         # import pdb; pdb.set_trace()
         self.linkpred = False
-        if self.linkpred:
-            max_num_nodes = adj.size()[1]
-            pred_adj0 = self.assign_tensor @ torch.transpose(self.assign_tensor, 1, 2) 
-            tmp = pred_adj0
-            pred_adj = pred_adj0
-            for adj_pow in range(adj_hop-1):
-                tmp = tmp @ pred_adj0
-                pred_adj = pred_adj + tmp
-            pred_adj = torch.min(pred_adj, torch.ones(1, dtype=pred_adj.dtype).cuda())
-            #print('adj1', torch.sum(pred_adj0) / torch.numel(pred_adj0))
-            #print('adj2', torch.sum(pred_adj) / torch.numel(pred_adj))
-            #self.link_loss = F.nll_loss(torch.log(pred_adj), adj)
-            self.link_loss = -adj * torch.log(pred_adj+eps) - (1-adj) * torch.log(1-pred_adj+eps)
-            if batch_num_nodes is None:
-                num_entries = max_num_nodes * max_num_nodes * adj.size()[0]
-                print('Warning: calculating link pred loss without masking')
-            else:
-                num_entries = np.sum(batch_num_nodes * batch_num_nodes)
-                embedding_mask = self.construct_mask(max_num_nodes, batch_num_nodes)
-                adj_mask = embedding_mask @ torch.transpose(embedding_mask, 1, 2)
-                self.link_loss[(1-adj_mask).bool()] = 0.0
+        # if self.linkpred:
+        #     max_num_nodes = adj.size()[1]
+        #     pred_adj0 = self.assign_tensor @ torch.transpose(self.assign_tensor, 1, 2) 
+        #     tmp = pred_adj0
+        #     pred_adj = pred_adj0
+        #     for adj_pow in range(adj_hop-1):
+        #         tmp = tmp @ pred_adj0
+        #         pred_adj = pred_adj + tmp
+        #     pred_adj = torch.min(pred_adj, torch.ones(1, dtype=pred_adj.dtype).cuda())
+        #     #print('adj1', torch.sum(pred_adj0) / torch.numel(pred_adj0))
+        #     #print('adj2', torch.sum(pred_adj) / torch.numel(pred_adj))
+        #     #self.link_loss = F.nll_loss(torch.log(pred_adj), adj)
+        #     self.link_loss = -adj * torch.log(pred_adj+eps) - (1-adj) * torch.log(1-pred_adj+eps)
+        #     if batch_num_nodes is None:
+        #         num_entries = max_num_nodes * max_num_nodes * adj.size()[0]
+        #         print('Warning: calculating link pred loss without masking')
+        #     else:
+        #         num_entries = np.sum(batch_num_nodes * batch_num_nodes)
+        #         embedding_mask = self.construct_mask(max_num_nodes, batch_num_nodes)
+        #         adj_mask = embedding_mask @ torch.transpose(embedding_mask, 1, 2)
+        #         self.link_loss[(1-adj_mask).bool()] = 0.0
 
-            self.link_loss = torch.sum(self.link_loss) / float(num_entries)
-            #print('linkloss: ', self.link_loss)
-            return loss + self.link_loss
+        #     self.link_loss = torch.sum(self.link_loss) / float(num_entries)
+        #     #print('linkloss: ', self.link_loss)
+        #     return loss + self.link_loss
         return loss
 
