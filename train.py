@@ -167,7 +167,8 @@ def train(train_graphs, max_num_nodes, model, args, same_feat=True, val_graphs=N
                 nn.utils.clip_grad_norm_(model.parameters(), args.clip)
                 optimizer.step()
                 iter += 1
-                avg_loss += loss
+                # avg_loss += loss
+                avg_loss += loss * len(data)
                 #if iter % 20 == 0:
                 #    print('Iter: ', iter, ', loss: ', loss.data[0])
                 elapsed = time.time() - begin_time
@@ -178,7 +179,8 @@ def train(train_graphs, max_num_nodes, model, args, same_feat=True, val_graphs=N
             #     log_assignment(model.assign_tensor, writer, epoch, writer_batch_idx)
         #         if args.log_graph:
         #             log_graph(adj, batch_num_nodes, writer, epoch, writer_batch_idx, model.assign_tensor)
-        avg_loss /= batch_idx + 1
+        # avg_loss /= batch_idx + 1
+        avg_loss = avg_loss / len(dataset)
         if writer is not None:
             writer.add_scalar('loss/avg_loss', avg_loss, epoch)
             if args.linkpred:
@@ -358,7 +360,7 @@ def arg_parse():
                         lr=0.001,
                         clip=2.0,
                         batch_size=1,
-                        num_epochs=100,
+                        num_epochs=200,
                         train_ratio=0.85,
                         test_ratio=0.025,
                         num_workers=0,
